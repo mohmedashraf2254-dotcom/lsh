@@ -23,20 +23,31 @@
 int lsh_cd(char **args);
 int lsh_help(char **args);
 int lsh_exit(char **args);
-
+int lsh_pwd(char **args);
+int lsh_echo(char **args);
+int lsh_history(char **args);
+int lsh_env(char **args);
 /*
   List of builtin commands, followed by their corresponding functions.
  */
 char *builtin_str[] = {
   "cd",
   "help",
-  "exit"
+  "exit",
+  "pwd",
+  "echo",
+  "history",
+  "env"
 };
 
 int (*builtin_func[]) (char **) = {
   &lsh_cd,
   &lsh_help,
-  &lsh_exit
+  &lsh_exit,
+  &lsh_pwd,
+  &lsh_echo,
+  &lsh_history,
+  &lsh_env
 };
 
 int lsh_num_builtins() {
@@ -92,6 +103,68 @@ int lsh_help(char **args)
 int lsh_exit(char **args)
 {
   return 0;
+}
+
+#define HISTORY_MAX_SIZE 100
+char *history_commands[HISTORY_MAX_SIZE];
+int history_count = 0;
+
+void add_to_history(char *line) {
+    if (line == NULL || strlen(line) == 0) return;
+    if (history_count < HISTORY_MAX_SIZE) {
+        history_commands[history_count] = strdup(line);
+        history_count++;
+    } else {
+        free(history_commands[0]);
+        for (int i = 1; i < HISTORY_MAX_SIZE; i++) {
+            history_commands[i - 1] = history_commands[i];
+        }
+        history_commands[HISTORY_MAX_SIZE - 1] = strdup(line);
+    }
+}
+
+
+int lsh_pwd(char **args) {
+    char cwd[1024];
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        printf("%s\n", cwd);
+    } else {
+        perror("lsh: pwd error");
+    }
+    return 1;
+}
+
+
+int lsh_echo(char **args) {
+    int i = 1;
+    while (args[i] != NULL) {
+        printf("%s", args[i]);
+        if (args[i+1] != NULL) {
+            printf(" ");
+        }
+        i++;
+    }
+    printf("\n");
+    return 1;
+}
+
+
+int lsh_history(char **args) {
+    for (int i = 0; i < history_count; i++) {
+        printf("%d  %s\n", i + 1, history_commands[i]);
+    }
+    return 1;
+}
+
+
+int lsh_env(char **args) {
+    extern char **environ;
+    int i = 0;
+    while (environ[i] != NULL) {
+        printf("%s\n", environ[i]);
+        i++;
+    }
+    return 1;
 }
 
 /**
@@ -256,6 +329,7 @@ void lsh_loop(void)
   do {
     printf("> ");
     line = lsh_read_line();
+    add_to_history(line);
     args = lsh_split_line(line);
     status = lsh_execute(args);
 
